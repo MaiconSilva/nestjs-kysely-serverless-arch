@@ -1,0 +1,28 @@
+{
+  "name": "@todolist/users",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "serverless offline --stage local",
+    "deploy": "serverless deploy --stage ${STAGE:-dev}",
+    "test": "jest --selectProjects unit --roots $(pwd)"
+  },
+  "dependencies": {
+    "@todolist/shared": "1.0.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.569.0",
+    "@nestjs/common": "^10.3.8",
+    "@nestjs/core": "^10.3.8",
+    "@nestjs/platform-fastify": "^10.3.8",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "kysely": "^0.27.3",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.3.3",
+    "serverless-plugin-typescript": "^2.1.5"
+  }
+}

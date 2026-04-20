@@ -1,0 +1,55 @@
+service: todolist-tenants
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 512
+  timeout: 15
+  architecture: arm64
+  environment:
+    NODE_OPTIONS: --enable-source-maps
+    STAGE: ${self:provider.stage}
+    PG_HOST: ${ssm:/todolist/${self:provider.stage}/pg/host}
+    PG_PORT: ${ssm:/todolist/${self:provider.stage}/pg/port}
+    PG_DATABASE: ${ssm:/todolist/${self:provider.stage}/pg/database}
+    PG_USER: ${ssm:/todolist/${self:provider.stage}/pg/user}
+    PG_PASSWORD: ${ssm:/todolist/${self:provider.stage}/pg/password, 'todo123'}
+    PG_MAX_CONNECTIONS: '2'
+    AUTH_MODE: ${env:AUTH_MODE, 'cognito'}
+    COGNITO_USER_POOL_ID: ${ssm:/todolist/${self:provider.stage}/cognito/user-pool-id}
+    COGNITO_CLIENT_ID: ${ssm:/todolist/${self:provider.stage}/cognito/client-id}
+    JWT_LOCAL_SECRET: ${env:JWT_LOCAL_SECRET, 'local-dev-secret'}
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    lambdaPort: 3101
+
+package:
+  individually: true
+  patterns:
+    - 'src/**'
+    - '../../packages/shared/src/**'
+    - '../../tsconfig.base.json'
+
+functions:
+  createTenant:
+    handler: src/presentation/handlers/tenants.handler.handler
+    events:
+      - httpApi:
+          path: /tenants
+          method: POST
+  getTenant:
+    handler: src/presentation/handlers/tenants.handler.handler
+    events:
+      - httpApi:
+          path: /tenants/{id}
+          method: GET

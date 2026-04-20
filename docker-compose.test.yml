@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: todolist-postgres-test
+    environment:
+      POSTGRES_DB: todo_test
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: todo123
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./packages/shared/src/infrastructure/database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo -d todo_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
