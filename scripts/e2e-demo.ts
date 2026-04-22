@@ -42,16 +42,20 @@ async function call<T>(
   body?: unknown,
   token?: string,
 ): Promise<T> {
+  // Fastify rejects POST with Content-Type: application/json and an empty body
+  // (FST_ERR_CTP_EMPTY_JSON_BODY). Only set JSON when we actually send a body.
+  const hasJsonBody = body !== undefined;
   const res = await fetch(url, {
     method,
     headers: {
-      'content-type': 'application/json',
+      ...(hasJsonBody ? { 'content-type': 'application/json' } : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: hasJsonBody ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
   if (!res.ok) {
+    console.log(res);
     throw new Error(`${method} ${url} → ${res.status}: ${text}`);
   }
   return text ? JSON.parse(text) : (undefined as T);

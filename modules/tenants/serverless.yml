@@ -12,16 +12,18 @@ provider:
   architecture: arm64
   environment:
     NODE_OPTIONS: --enable-source-maps
-    STAGE: ${self:provider.stage}
-    PG_HOST: ${ssm:/todolist/${self:provider.stage}/pg/host}
-    PG_PORT: ${ssm:/todolist/${self:provider.stage}/pg/port}
-    PG_DATABASE: ${ssm:/todolist/${self:provider.stage}/pg/database}
-    PG_USER: ${ssm:/todolist/${self:provider.stage}/pg/user}
-    PG_PASSWORD: ${ssm:/todolist/${self:provider.stage}/pg/password, 'todo123'}
+    STAGE: ${sls:stage}
+
+    PG_HOST: ${env:PG_HOST, param:PG_HOST}
+    PG_PORT: ${env:PG_PORT, param:PG_PORT}
+    PG_DATABASE: ${env:PG_DATABASE, param:PG_DATABASE}
+    PG_USER: ${env:PG_USER, param:PG_USER}
+    PG_PASSWORD: ${env:PG_PASSWORD, param:PG_PASSWORD}
     PG_MAX_CONNECTIONS: '2'
+
     AUTH_MODE: ${env:AUTH_MODE, 'cognito'}
-    COGNITO_USER_POOL_ID: ${ssm:/todolist/${self:provider.stage}/cognito/user-pool-id}
-    COGNITO_CLIENT_ID: ${ssm:/todolist/${self:provider.stage}/cognito/client-id}
+    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID, param:COGNITO_USER_POOL_ID}
+    COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID, param:COGNITO_CLIENT_ID}
     JWT_LOCAL_SECRET: ${env:JWT_LOCAL_SECRET, 'local-dev-secret'}
 
 plugins:
@@ -33,22 +35,42 @@ custom:
     httpPort: 3001
     lambdaPort: 3101
 
+params:
+  default:
+    PG_HOST: localhost
+    PG_PORT: '5432'
+    PG_DATABASE: todo_dev
+    PG_USER: todo
+    PG_PASSWORD: todo123
+    COGNITO_USER_POOL_ID: dummy
+    COGNITO_CLIENT_ID: dummy
+
+  local:
+    PG_HOST: localhost
+    PG_PORT: '5432'
+    PG_DATABASE: todo_dev
+    PG_USER: todo
+    PG_PASSWORD: todo123
+    COGNITO_USER_POOL_ID: dummy
+    COGNITO_CLIENT_ID: dummy
+
 package:
   individually: true
   patterns:
     - 'src/**'
-    - '../../packages/shared/src/**'
+    - '../../packages/shared/dist/**'
     - '../../tsconfig.base.json'
 
 functions:
   createTenant:
-    handler: src/presentation/handlers/tenants.handler.handler
+    handler: src/presentation/handlers/tenants-handler.handler
     events:
       - httpApi:
           path: /tenants
           method: POST
+
   getTenant:
-    handler: src/presentation/handlers/tenants.handler.handler
+    handler: src/presentation/handlers/tenants-handler.handler
     events:
       - httpApi:
           path: /tenants/{id}

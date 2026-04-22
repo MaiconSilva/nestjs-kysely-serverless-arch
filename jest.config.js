@@ -1,12 +1,20 @@
 /** @type {import('jest').Config} */
 module.exports = {
   rootDir: '.',
+  testTimeout: 30000,
   projects: [
     {
       displayName: 'unit',
       testEnvironment: 'node',
       roots: ['<rootDir>/packages', '<rootDir>/modules'],
       testMatch: ['**/*.spec.ts'],
+      // *.int.spec.ts also ends in .spec.ts; keep integration-only files out of unit runs.
+      testPathIgnorePatterns: [
+        '/node_modules/',
+        '\\.int\\.spec\\.ts$',
+        '/\\.build/',
+        '/modules/packages/',
+      ],
       transform: {
         '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.base.json' }],
       },
@@ -30,6 +38,7 @@ module.exports = {
       testEnvironment: 'node',
       roots: ['<rootDir>/packages', '<rootDir>/modules'],
       testMatch: ['**/*.int.spec.ts'],
+      testPathIgnorePatterns: ['/node_modules/', '/\\.build/', '/modules/packages/'],
       transform: {
         '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.base.json' }],
       },
@@ -37,7 +46,6 @@ module.exports = {
         '^@todolist/shared$': '<rootDir>/packages/shared/src',
         '^@todolist/shared/(.*)$': '<rootDir>/packages/shared/src/$1',
       },
-      testTimeout: 30000,
     },
   ],
 };

@@ -2,9 +2,17 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
-    { "path": "./packages/shared" },
-    { "path": "./modules/tenants" },
-    { "path": "./modules/users" },
-    { "path": "./modules/activities" }
+    {
+      "path": "./packages/shared"
+    },
+    {
+      "path": "./modules/activities"
+    },
+    {
+      "path": "./modules/tenants"
+    },
+    {
+      "path": "./modules/users"
+    }
   ]
 }

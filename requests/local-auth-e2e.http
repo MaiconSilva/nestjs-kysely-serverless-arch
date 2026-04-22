@@ -1,0 +1,248 @@
+###############################################################################
+# Todolist POC - E2E requests (AUTH_MODE=local, sem servicos AWS)
+#
+# Extensao: "REST Client" (humao.rest-client) no VSCode/Cursor.
+# As variaveis @name conectam respostas entre requests.
+#
+# ----------------------------------------------------------------------------
+# PRE-REQUISITOS
+# ----------------------------------------------------------------------------
+#
+# 1) Subir Postgres
+#    docker-compose up -d
+#
+# 2) Deps e migrations
+#    npm install
+#    npm run db:migrate
+#
+# 3) Subir os 3 modulos (um terminal cada), todos com AUTH_MODE=local
+#    (usa JWT HS256 e identidades em .local-auth/local-identity.json)
+#
+#    AUTH_MODE=local npm run dev:tenants      # 3001
+#    AUTH_MODE=local npm run dev:users        # 3002
+#    AUTH_MODE=local npm run dev:activities   # 3003
+#
+# 4) Apos o request #1, gere um JWT de bootstrap (admin) e preencha @bootstrapToken
+#    abaixo. O tenant id vem do corpo de #1; exporte e rode:
+#
+#    export TENANT_ID=<cole o id de createTenant>
+#    node -e "const j=require('jsonwebtoken'); console.log(j.sign({ sub: 'bootstrap-'+Date.now(), 'custom:tenant_id': process.env.TENANT_ID, 'custom:role': 'admin', email: 'bootstrap@local' }, process.env.JWT_LOCAL_SECRET || 'local-dev-secret', { expiresIn: '10m' }))"
+#
+# 5) Depois de #1 e #1b, o resto pode ser enviado em sequencia.
+#
+# Ordem: #1 -> preencha @bootstrapToken -> #1b -> #2 em diante
+###############################################################################
+
+@tenantsUrl = http://localhost:3001
+@usersUrl = http://localhost:3002
+@activitiesUrl = http://localhost:3003
+
+@adminEmail = admin@acme.test
+@adminPassword = AdminPass!23
+@memberEmail = jane.member@acme.test
+@memberPassword = MemberPass!23
+
+# Apos o request #1, gere o token (passo 4 acima) e substitua o valor:
+@bootstrapToken = PASTE_JWT_FROM_NODE_HERE
+
+
+### 1. Criar tenant (publico)
+# Se o slug abaixo ja existir, altere "slug" e rode de novo.
+# @name createTenant
+POST {{tenantsUrl}}/tenants
+Content-Type: application/json
+
+{
+  "name": "Acme Corp 3",
+  "slug": "acme-corp-3"
+}
+
+###
+
+@tenantId = {{createTenant.response.body.id}}
+
+
+### 1b. Criar primeiro admin (exige token bootstrap HS256; veja passo 4 do cabecalho)
+# @name createAdmin
+POST {{usersUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{bootstrapToken}}
+
+{
+  "name": "Admin Acme",
+  "email": "{{adminEmail}}",
+  "role": "admin",
+  "temporaryPassword": "{{adminPassword}}"
+}
+
+###
+
+
+### 2. Login como admin
+# accessToken e idToken sao o mesmo string em AUTH_MODE=local
+# @name loginAdmin
+POST {{usersUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+###
+
+@adminToken = {{loginAdmin.response.body.accessToken}}
+@adminUserId = {{loginAdmin.response.body.user.id}}
+
+
+### 3. Buscar o tenant (autenticado)
+GET {{tenantsUrl}}/tenants/{{tenantId}}
+Authorization: Bearer {{adminToken}}
+
+
+### 4. Criar usuario "member" (admin-only)
+# @name createMember
+POST {{usersUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Jane Member",
+  "email": "{{memberEmail}}",
+  "role": "member",
+  "temporaryPassword": "{{memberPassword}}"
+}
+
+###
+
+@memberUserId = {{createMember.response.body.id}}
+
+
+### 5. Listar usuarios do tenant (admin-only)
+GET {{usersUrl}}/users
+Authorization: Bearer {{adminToken}}
+
+
+### 6. Criar atividade #1 (admin-only)
+# @name createActivity1
+POST {{activitiesUrl}}/activities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "title": "Escrever testes de integracao",
+  "description": "Cobrir todos os caminhos felizes do modulo activities"
+}
+
+###
+
+@activity1Id = {{createActivity1.response.body.id}}
+
+
+### 7. Criar atividade #2 (admin-only)
+# @name createActivity2
+POST {{activitiesUrl}}/activities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "title": "Deploy em staging"
+}
+
+###
+
+@activity2Id = {{createActivity2.response.body.id}}
+
+
+### 8. Listar atividades (admin ou member)
+GET {{activitiesUrl}}/activities
+Authorization: Bearer {{adminToken}}
+
+
+### 9. Filtrar atividades por status
+GET {{activitiesUrl}}/activities?status=pending
+Authorization: Bearer {{adminToken}}
+
+
+### 10. Atribuir atividade #1 ao member (admin-only)
+POST {{activitiesUrl}}/activities/{{activity1Id}}/assign
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "userId": "{{memberUserId}}"
+}
+
+
+### 11. Login como member
+# @name loginMember
+POST {{usersUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{memberEmail}}",
+  "password": "{{memberPassword}}"
+}
+
+###
+
+@memberToken = {{loginMember.response.body.accessToken}}
+
+
+### 12. Member lista atividades atribuidas a ele
+GET {{activitiesUrl}}/activities?assigneeId={{memberUserId}}
+Authorization: Bearer {{memberToken}}
+
+
+### 13. Member conclui a atividade #1
+POST {{activitiesUrl}}/activities/{{activity1Id}}/complete
+Authorization: Bearer {{memberToken}}
+
+
+###############################################################################
+# Casos de erro / autorizacao
+###############################################################################
+
+
+### 14. Member tenta criar atividade -> esperado 403
+POST {{activitiesUrl}}/activities
+Content-Type: application/json
+Authorization: Bearer {{memberToken}}
+
+{
+  "title": "Deveria falhar - member sem permissao"
+}
+
+
+### 15. Member tenta listar usuarios -> esperado 403
+GET {{usersUrl}}/users
+Authorization: Bearer {{memberToken}}
+
+
+### 16. Completar atividade ja concluida -> 4xx de dominio
+POST {{activitiesUrl}}/activities/{{activity1Id}}/complete
+Authorization: Bearer {{adminToken}}
+
+
+### 17. Completar atividade #2 sem assignee -> 4xx de dominio
+POST {{activitiesUrl}}/activities/{{activity2Id}}/complete
+Authorization: Bearer {{adminToken}}
+
+
+### 18. Criar tenant com slug invalido -> esperado 400
+POST {{tenantsUrl}}/tenants
+Content-Type: application/json
+
+{
+  "name": "Bad Slug",
+  "slug": "INVALID SLUG"
+}
+
+
+### 19. Acessar /tenants/:id sem token -> esperado 401
+GET {{tenantsUrl}}/tenants/{{tenantId}}
+
+
+### 20. Token invalido -> esperado 401
+GET {{activitiesUrl}}/activities
+Authorization: Bearer invalid.jwt.token

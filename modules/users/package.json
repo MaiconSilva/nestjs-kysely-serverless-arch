@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc -b",
-    "dev": "serverless offline --stage local",
+    "predev": "npx tsc -b ../../packages/shared",
+    "dev": "node -e \"const fs=require('fs'),p='.build';if(fs.existsSync(p))fs.rmSync(p,{recursive:true})\" && serverless offline --stage local",
     "deploy": "serverless deploy --stage ${STAGE:-dev}",
     "test": "jest --selectProjects unit --roots $(pwd)"
   },

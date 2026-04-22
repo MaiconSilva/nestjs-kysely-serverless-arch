@@ -27,12 +27,7 @@
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@todolist/shared": ["packages/shared/src"],
-      "@todolist/shared/*": ["packages/shared/src/*"]
-    }
+    "resolveJsonModule": true
   },
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

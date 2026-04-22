@@ -2,10 +2,8 @@
  * One-shot bootstrap script — creates the Cognito User Pool, app client and
  * custom attributes (tenant_id, role), then stores the resulting ids in SSM.
  *
- * Usage:
+ * Usage (AWS; optional COGNITO_ENDPOINT/SSM endpoint for a custom API endpoint):
  *   STAGE=dev AWS_REGION=us-east-1 ts-node scripts/bootstrap-cognito.ts
- *   # or point at LocalStack:
- *   COGNITO_ENDPOINT=http://localhost:4566 STAGE=local ts-node scripts/bootstrap-cognito.ts
  */
 import {
   CognitoIdentityProviderClient,
@@ -59,7 +57,6 @@ async function main(): Promise<void> {
       ClientName: `todolist-${stage}-client`,
       GenerateSecret: false,
       ExplicitAuthFlows: [
-        'ADMIN_USER_PASSWORD_AUTH',
         'ALLOW_ADMIN_USER_PASSWORD_AUTH',
         'ALLOW_REFRESH_TOKEN_AUTH',
       ],

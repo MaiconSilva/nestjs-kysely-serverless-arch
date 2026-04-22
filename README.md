@@ -1,7 +1,7 @@
 # Todolist POC — multi-tenant architecture playground
 
 Multi-tenant todo list backend used to validate a reusable serverless
-architecture pattern: **DDD Leve + NestJS on Lambda + PostgreSQL with RLS +
+architecture pattern: **Light DDD + NestJS on Lambda + PostgreSQL with RLS +
 independent module deploys**.
 
 **Stack:** NestJS · Fastify · Kysely · AWS Lambda · API Gateway · Cognito ·
@@ -18,10 +18,13 @@ modules/
   activities/                 # Lambda: /activities, /assign, /complete
 scripts/
   run-migrations.ts           # applies .sql files in order
-  bootstrap-cognito.ts        # creates User Pool + SSM params
+  bootstrap-cognito.ts      # creates User Pool + SSM params
   e2e-demo.ts                 # full end-to-end happy path
-docker-compose.yml            # Postgres + LocalStack
-docker-compose.test.yml       # dedicated test Postgres on port 5433
+  create-module.ts            # scaffold a new module (+ refresh root dev:all)
+  remove-module.ts            # remove a module (+ refresh root dev:all)
+  patch-dev-all.ts            # shared helper to recompute npm run dev:all
+docker-compose.yml            # Postgres (dev)
+docker-compose.test.yml     # dedicated test Postgres on port 5433
 ```
 
 ## Prerequisites
@@ -33,8 +36,9 @@ docker-compose.test.yml       # dedicated test Postgres on port 5433
 ## Quick start (local dev with Docker)
 
 ```bash
-# 1. Bring up Postgres + LocalStack
-docker-compose up -d
+# 1. Bring up Postgres
+npm run db:up
+# or: docker-compose up -d
 
 # 2. Install deps (uses npm workspaces)
 npm install
@@ -42,36 +46,46 @@ npm install
 # 3. Apply migrations explicitly (docker-compose also auto-seeds on first boot)
 npm run db:migrate
 
-# 4. Start each module in its own terminal
+# 4. Run modules — either one process or three terminals
+AUTH_MODE=local npm run dev:all
+# or:
 AUTH_MODE=local npm run dev:tenants       # port 3001
 AUTH_MODE=local npm run dev:users         # port 3002
 AUTH_MODE=local npm run dev:activities    # port 3003
 
-# 5. In a fourth terminal, run the end-to-end demo
+# 5. End-to-end demo (expects the three dev servers)
 npm run demo
 ```
 
-`AUTH_MODE=local` swaps the Cognito verifier/signer for an HS256 JWT with a
-shared secret (`JWT_LOCAL_SECRET`, default `local-dev-secret`). Use it when
-LocalStack's Cognito isn't up.
+`AUTH_MODE=local` uses `LocalIdentityService` + `LocalHsJwtVerifier` (HS256
+JWTs) with a shared secret (`JWT_LOCAL_SECRET`, default `local-dev-secret`).
+Identities are persisted under `.local-auth/local-identity.json` (override with
+`LOCAL_IDENTITY_FILE`).
 
-## Quick start (with Cognito on LocalStack)
+## Other npm scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run build` / `typecheck` | TypeScript project references |
+| `npm run lint` | ESLint on `packages/` and `modules/` |
+| `npm test` / `test:unit` / `test:integration` / `test:cov` | Jest |
+| `npm run create:module -- <slug>` | New Serverless module (see `scripts/create-module.ts`) |
+| `npm run remove:module -- <slug>` | Remove a module tree |
+
+## Using real AWS Cognito
+
+`AUTH_MODE` defaults to `cognito` when a pool/client id is present. To provision
+Cognito in your AWS account and store the pool/client ids in SSM (see
+[`scripts/bootstrap-cognito.ts`](scripts/bootstrap-cognito.ts)):
 
 ```bash
-docker-compose up -d
-npm install
-npm run db:migrate
-
-COGNITO_ENDPOINT=http://localhost:4566 STAGE=local \
-  npm run cognito:bootstrap
-
-# Now start modules with default auth (cognito):
-COGNITO_USER_POOL_ID=<from-above> \
-COGNITO_CLIENT_ID=<from-above> \
-COGNITO_ENDPOINT=http://localhost:4566 \
-  npm run dev:tenants
-# ...same for users and activities
+# Configure AWS credentials / region in your environment first.
+STAGE=dev AWS_REGION=us-east-1 npm run cognito:bootstrap
 ```
+
+Point each module at the pool and client (via env vars or the `param:` values in
+`serverless.yml` when deployed). For local `serverless offline` with Cognito,
+export `COGNITO_USER_POOL_ID` and `COGNITO_CLIENT_ID` before `npm run dev:*`.
 
 ## Endpoints
 
@@ -99,14 +113,16 @@ COGNITO_ENDPOINT=http://localhost:4566 \
 | `POST` | `/activities/:id/assign` | Bearer | admin |
 | `POST` | `/activities/:id/complete` | Bearer | any |
 
-A Postman/Insomnia collection is available at
-[`docs/postman-collection.json`](docs/postman-collection.json).
+Manual API smoke test: see
+[`requests/local-auth-e2e.http`](requests/local-auth-e2e.http) (REST Client in
+VS Code / Cursor; follow the header comments).
 
 ## Tests
 
 ```bash
-npm run test:unit            # fast, in-memory
-npm run test:integration     # needs docker-compose.test.yml
+npm run test:unit
+
+# Integration tests need the test database:
 docker-compose -f docker-compose.test.yml up -d
 npm run test:integration
 ```
@@ -131,7 +147,7 @@ CI does this automatically via path-filtered GitHub Actions workflows:
 
 | Concept | Where to see it |
 |---------|-----------------|
-| DDD Leve | `modules/activities/src/domain/entities/activity.entity.ts` |
+| Light DDD | `modules/activities/src/domain/entities/activity.entity.ts` |
 | Multi-tenant via RLS | `packages/shared/src/infrastructure/database/migrations/002_users.sql` + `withTenant` |
 | Modular deploy | Three independent `serverless.yml` + three pipelines with `paths:` filters |
 | Cold start optimized | `packages/shared/src/infrastructure/lambda/nest-bootstrap.ts` (cached promise) |

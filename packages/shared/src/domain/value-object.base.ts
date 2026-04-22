@@ -3,7 +3,7 @@
  * Subclasses must pass their payload in `props`; equality relies on JSON equality
  * which is enough for the small VOs in this POC (primitive-backed values).
  */
-export abstract class ValueObject<TProps extends Record<string, unknown>> {
+export abstract class ValueObject<TProps extends object = Record<string, unknown>> {
   protected readonly props: TProps;
 
   protected constructor(props: TProps) {

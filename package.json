@@ -15,7 +15,7 @@
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration --runInBand",
     "test:cov": "jest --coverage",
-    "db:up": "docker-compose up -d postgres localstack",
+    "db:up": "docker-compose up -d postgres",
     "db:down": "docker-compose down",
     "db:migrate": "ts-node scripts/run-migrations.ts",
     "db:codegen": "kysely-codegen --out-file packages/shared/src/infrastructure/database/schema.types.ts",
@@ -23,9 +23,13 @@
     "dev:tenants": "npm --workspace @todolist/tenants run dev",
     "dev:users": "npm --workspace @todolist/users run dev",
     "dev:activities": "npm --workspace @todolist/activities run dev",
-    "demo": "ts-node scripts/e2e-demo.ts"
+    "demo": "ts-node scripts/e2e-demo.ts",
+    "create:module": "ts-node scripts/create-module.ts",
+    "remove:module": "ts-node scripts/remove-module.ts",
+    "dev:all": "concurrently -n activities,tenants,users -c auto \"AUTH_MODE=local npm run dev:activities\" \"AUTH_MODE=local npm run dev:tenants\" \"AUTH_MODE=local npm run dev:users\""
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.7",
     "@types/supertest": "^6.0.2",
